@@ -10,6 +10,8 @@ const envSchema = zod_1.z.object({
     PORT: zod_1.z.coerce.number().int().positive(),
     NODE_ENV: zod_1.z.enum(["development", "test", "production"]),
     DATABASE_URL: zod_1.z.string().min(1),
+    JWT_ACCESS_SECRET: zod_1.z.string().min(32),
+    JWT_REFRESH_SECRET: zod_1.z.string().min(32),
 });
 const env = envSchema.parse(process.env);
 exports.default = env;

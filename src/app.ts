@@ -5,10 +5,13 @@ import logger from "./middleware/logger";
 import errorHandler from "./middleware/errorHandler";
 
 import userRoutes from "./routes/user.routes";
+import authRoutes from "./routes/auth";
+import "./events/auth.events";
 
 const app = express();
 
 app.use(express.json());
+app.use("/api/auth", authRoutes);
 
 app.use(correlationId);
 app.use(logger);
