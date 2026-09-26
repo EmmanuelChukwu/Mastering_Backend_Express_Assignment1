@@ -1,34 +1,96 @@
-import { Request, Response, NextFunction } from "express";
+import {
+  Request,
+  Response,
+  NextFunction,
+} from "express";
 
-interface HttpError extends Error {
-  statusCode?: number;
-}
+import { AppError } from "../lib/errors";
 
-const errorHandler = (
-  err: HttpError,
-  req: Request,
+
+// ============================================================
+// GLOBAL ERROR HANDLER
+// ============================================================
+//
+// Express recognizes this as error-handling middleware because
+// it has FOUR parameters:
+//
+// err, req, res, next
+//
+// This middleware should be mounted LAST in app.ts.
+//
+// Any route/middleware that calls:
+//
+// next(error)
+//
+// eventually arrives here.
+// ============================================================
+
+export function errorHandler(
+  err: Error,
+  _req: Request,
   res: Response,
-  next: NextFunction,
-): void => {
-  const statusCode = err.statusCode || 500;
+  _next: NextFunction
+) {
 
-  console.error(
-    JSON.stringify({
-      event: "request_error",
-      correlationId: req.correlationId,
-      message: err.message,
-      statusCode,
-      timestamp: new Date().toISOString(),
-    }),
-  );
+  // ==========================================================
+  // EXPECTED / OPERATIONAL ERROR
+  // ==========================================================
+  //
+  // These are failures our application understands.
+  //
+  // Example:
+  //
+  // throw new ConflictError("Email already registered");
+  //
+  // We can safely send the appropriate message/status.
+  // ==========================================================
 
-  res.status(statusCode).json({
+  if (err instanceof AppError) {
+    console.warn(
+      `[${err.code}] ${err.message}`,
+      err.details ?? ""
+    );
+
+    return res.status(err.statusCode).json({
+      success: false,
+      error: {
+        code: err.code,
+        message: err.message,
+
+        ...(err.details !== undefined
+          ? { details: err.details }
+          : {}),
+      },
+    });
+  }
+
+
+  // ==========================================================
+  // UNEXPECTED PROGRAMMING ERROR
+  // ==========================================================
+  //
+  // Something went wrong that we didn't deliberately model.
+  //
+  // IMPORTANT:
+  // Don't expose the actual error to the client.
+  //
+  // It could contain:
+  // - database information
+  // - filesystem paths
+  // - stack traces
+  // - internal implementation details
+  //
+  // Log the actual error server-side.
+  // Return a safe generic message to the client.
+  // ==========================================================
+
+  console.error("Unhandled error:", err);
+
+  return res.status(500).json({
     success: false,
     error: {
-      message: statusCode === 500 ? "Internal server error" : err.message,
+      code: "INTERNAL_ERROR",
+      message: "An unexpected error occurred",
     },
-    correlationId: req.correlationId,
   });
-};
-
-export default errorHandler;
+}

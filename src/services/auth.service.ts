@@ -7,6 +7,7 @@ import {
 } from "../lib/tokens";
 import { appEvents } from "../lib/events";
 import { AUTH_EVENTS } from "../events/auth.events";
+import { ConflictError, UnauthorizedError } from "../lib/errors";
 import crypto from "crypto";
 
 // Registers a new user.
@@ -40,7 +41,7 @@ export async function register(data: {
   });
 
   if (existing) {
-    throw new Error("Email already registered");
+    throw new ConflictError("Email already registered");
   }
 
   // IMPORTANT:
@@ -59,7 +60,7 @@ export async function register(data: {
   const user = await prisma.user.create({
     data: {
       name: data.name,
-      email,
+      email: data.email,
       passwordHash,
     },
   });
@@ -109,7 +110,7 @@ export async function login(data: {
       deviceInfo: data.deviceInfo,
     });
 
-    throw new Error("Invalid credentials");
+    throw new UnauthorizedError("Invalid credentials");
   }
 
   // Compare the password the user just entered
@@ -125,7 +126,10 @@ export async function login(data: {
       deviceInfo: data.deviceInfo,
     });
 
-    throw new Error("Invalid credentials");
+    // Wrong password is an authentication failure,
+    // so it must be a 401 Unauthorized rather than
+    // a generic 500 Internal Server Error.
+    throw new UnauthorizedError("Invalid credentials");
   }
 
   // Password is correct.

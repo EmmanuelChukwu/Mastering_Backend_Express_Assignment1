@@ -1,0 +1,126 @@
+name: Project1 CI
+
+on:
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+
+    # ========================================================
+    # POSTGRESQL TEST DATABASE
+    # ========================================================
+    #
+    # GitHub Actions starts PostgreSQL for this job.
+    # ========================================================
+
+    services:
+
+      postgres:
+        image: postgres:18
+
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: project_test_db
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+
+    steps:
+
+      # ======================================================
+      # CHECK OUT OUR REPOSITORY
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # INSTALL NODE
+      # ======================================================
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+
+        with:
+          node-version: "20"
+          cache: "npm"
+
+
+      # ======================================================
+      # INSTALL EXACT DEPENDENCY VERSIONS
+      # ======================================================
+      #
+      # CI uses npm ci instead of npm install.
+      #
+      # npm ci follows package-lock.json exactly.
+      # ======================================================
+
+      - name: Install dependencies
+        run: npm ci
+
+
+      # ======================================================
+      # PRISMA CLIENT
+      # ======================================================
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+
+      # ======================================================
+      # DATABASE MIGRATIONS
+      # ======================================================
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/project_test_db
+
+        run: npx prisma migrate deploy
+
+
+      # ======================================================
+      # TESTS
+      # ======================================================
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/project_test_db
+
+          JWT_ACCESS_SECRET: ci-access-secret-at-least-thirty-two-characters
+
+          JWT_REFRESH_SECRET: ci-refresh-secret-at-least-thirty-two-characters
+
+          NODE_ENV: test
+
+        run: npm run test:coverage
+
+
+      # ======================================================
+      # SAVE COVERAGE
+      # ======================================================
+
+      - name: Upload coverage report
+        if: always()
+
+        uses: actions/upload-artifact@v4
+
+        with:
+          name: coverage-report
+          path: coverage/
