@@ -9,6 +9,7 @@ dist/
 .env
 .env.*            # ignore other env variants (local/test), keep .env.example if present
 !.env.example
+.env.test
 
 # Prisma generated client
 /src/generated/prisma
