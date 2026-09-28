@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.JsonNullValueFilter = exports.NullsOrder = exports.QueryMode = exports.NullableJsonNullValueInput = exports.SortOrder = exports.UsageLogScalarFieldEnum = exports.RefreshTokenScalarFieldEnum = exports.RolePermissionScalarFieldEnum = exports.UserRoleScalarFieldEnum = exports.PermissionScalarFieldEnum = exports.RoleScalarFieldEnum = exports.UserScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
+exports.JsonNullValueFilter = exports.NullsOrder = exports.QueryMode = exports.NullableJsonNullValueInput = exports.SortOrder = exports.MessageScalarFieldEnum = exports.ConversationScalarFieldEnum = exports.ChunkScalarFieldEnum = exports.DocumentScalarFieldEnum = exports.UsageLogScalarFieldEnum = exports.RefreshTokenScalarFieldEnum = exports.RolePermissionScalarFieldEnum = exports.UserRoleScalarFieldEnum = exports.PermissionScalarFieldEnum = exports.RoleScalarFieldEnum = exports.UserScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/index-browser"));
 exports.Decimal = runtime.Decimal;
 exports.NullTypes = {
@@ -81,7 +81,11 @@ exports.ModelName = {
     UserRole: 'UserRole',
     RolePermission: 'RolePermission',
     RefreshToken: 'RefreshToken',
-    UsageLog: 'UsageLog'
+    UsageLog: 'UsageLog',
+    Document: 'Document',
+    Chunk: 'Chunk',
+    Conversation: 'Conversation',
+    Message: 'Message'
 };
 /*
  * Enums
@@ -140,8 +144,50 @@ exports.RefreshTokenScalarFieldEnum = {
 exports.UsageLogScalarFieldEnum = {
     id: 'id',
     userId: 'userId',
-    event: 'event',
+    action: 'action',
+    tokens: 'tokens',
+    costUsd: 'costUsd',
     metadata: 'metadata',
+    createdAt: 'createdAt'
+};
+exports.DocumentScalarFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    title: 'title',
+    description: 'description',
+    filename: 'filename',
+    status: 'status',
+    chunkCount: 'chunkCount',
+    fileSizeBytes: 'fileSizeBytes',
+    deletedAt: 'deletedAt',
+    deletedBy: 'deletedBy',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+exports.ChunkScalarFieldEnum = {
+    id: 'id',
+    documentId: 'documentId',
+    chunkIndex: 'chunkIndex',
+    content: 'content',
+    tokenCount: 'tokenCount',
+    createdAt: 'createdAt'
+};
+exports.ConversationScalarFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    title: 'title',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+exports.MessageScalarFieldEnum = {
+    id: 'id',
+    conversationId: 'conversationId',
+    documentId: 'documentId',
+    role: 'role',
+    content: 'content',
+    promptTokens: 'promptTokens',
+    completionTokens: 'completionTokens',
+    costUsd: 'costUsd',
     createdAt: 'createdAt'
 };
 exports.SortOrder = {

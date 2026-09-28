@@ -20,7 +20,10 @@ appEvents.on("admin:role-assigned", async (data) => {
     await prisma.usageLog.create({
       data: {
         userId: data.assignedBy,
-        event: "role_assigned",
+        action: "role_assigned",
+
+        tokens: 0,
+        costUsd: 0,
 
         metadata: JSON.stringify({
           targetUserId: data.targetUserId,
@@ -43,7 +46,10 @@ appEvents.on("admin:role-revoked", async (data) => {
     await prisma.usageLog.create({
       data: {
         userId: data.revokedBy,
-        event: "role_revoked",
+        action: "role_revoked",
+
+        tokens: 0,
+        costUsd: 0,
 
         metadata: JSON.stringify({
           targetUserId: data.targetUserId,

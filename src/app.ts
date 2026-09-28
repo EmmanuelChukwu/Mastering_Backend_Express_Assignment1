@@ -9,7 +9,10 @@ import { errorHandler } from "./middleware/errorHandler";
 import userRoutes from "./routes/user.routes";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
+import documentRoutes from "./routes/document.routes";
+import conversationRoutes from "./routes/conversation.routes";
 import "./events/auth.events";
+import "./events/document.events";
 import "./events/admin.events";
 
 const app = express();
@@ -47,6 +50,9 @@ app.get("/health", (req: Request, res: Response) => {
 app.use("/api/v1/users", userRoutes);
 
 app.use("/api/v1/admin", adminRoutes);
+
+app.use("/api/v1/documents", documentRoutes);
+app.use("/api/v1/conversations", conversationRoutes);
 
 // ============================================================
 // 404 HANDLER
