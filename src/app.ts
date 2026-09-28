@@ -8,7 +8,9 @@ import { errorHandler } from "./middleware/errorHandler";
 
 import userRoutes from "./routes/user.routes";
 import authRoutes from "./routes/auth";
+import adminRoutes from "./routes/admin";
 import "./events/auth.events";
+import "./events/admin.events";
 
 const app = express();
 
@@ -43,6 +45,8 @@ app.get("/health", (req: Request, res: Response) => {
 });
 
 app.use("/api/v1/users", userRoutes);
+
+app.use("/api/v1/admin", adminRoutes);
 
 // ============================================================
 // 404 HANDLER

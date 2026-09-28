@@ -8,19 +8,81 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String    @unique
   passwordHash String
-  role         String   @default("user")
-  tier         String   @default("free")
-  isActive     Boolean  @default(true)
+  role         String    @default("user")
+  tier         String    @default("free")
+  isActive     Boolean   @default(true)
   deletedAt    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // RBAC:
+  // A user can have multiple roles.
+  roles         UserRole[]
   refreshTokens RefreshToken[]
+  usageLogs     UsageLog[]
 
   @@index([email])
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  isDefault   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A role can belong to many users.
+  users UserRole[]
+
+  // A role can have many permissions.
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  resource    String
+  action      String
+
+  createdAt DateTime @default(now())
+
+  // A permission can belong to many roles.
+  roles RolePermission[]
+
+  // Prevent duplicate resource/action combinations.
+  @@unique([resource, action])
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  // Composite primary key:
+  // the same user cannot receive the same role twice.
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  // Prevent duplicate role/permission assignments.
+  @@id([roleId, permissionId])
 }
 
 model RefreshToken {
@@ -34,4 +96,18 @@ model RefreshToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model UsageLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  event     String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([event])
+  @@index([createdAt])
 }

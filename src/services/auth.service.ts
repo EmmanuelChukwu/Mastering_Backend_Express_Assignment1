@@ -65,6 +65,33 @@ export async function register(data: {
     },
   });
 
+  // ============================================================
+  // ASSIGN THE DEFAULT ROLE
+  // ============================================================
+  //
+  // New users should automatically receive the role marked
+  // isDefault = true.
+  //
+  // This keeps the registration logic flexible:
+  // if the business later decides that "viewer" should be
+  // the default instead of "member", we change the database
+  // configuration rather than hard-coding "member" here.
+
+  const defaultRole = await prisma.role.findFirst({
+    where: {
+      isDefault: true,
+    },
+  });
+
+  if (defaultRole) {
+    await prisma.userRole.create({
+      data: {
+        userId: user.id,
+        roleId: defaultRole.id,
+      },
+    });
+  }
+
   // Tell the application that registration succeeded.
   //
   // The auth service doesn't need to know what happens next.

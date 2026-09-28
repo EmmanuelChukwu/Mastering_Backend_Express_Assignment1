@@ -11,7 +11,9 @@ const logger_1 = __importDefault(require("./middleware/logger"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
 const auth_1 = __importDefault(require("./routes/auth"));
+const admin_1 = __importDefault(require("./routes/admin"));
 require("./events/auth.events");
+require("./events/admin.events");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(correlationId_1.default);
@@ -39,6 +41,7 @@ app.get("/health", (req, res) => {
     });
 });
 app.use("/api/v1/users", user_routes_1.default);
+app.use("/api/v1/admin", admin_1.default);
 // ============================================================
 // 404 HANDLER
 // ============================================================
