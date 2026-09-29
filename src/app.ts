@@ -6,6 +6,12 @@ import { verifyWebhookSignature } from "./middleware/verifyWebhook";
 import correlationId from "./middleware/correlationId";
 import logger from "./middleware/logger";
 import { errorHandler } from "./middleware/errorHandler";
+import {
+  authLimiter,
+  apiLimiter,
+  uploadLimiter,
+  chatLimiter,
+} from "./middleware/rateLimiter";
 
 import userRoutes from "./routes/user.routes";
 import authRoutes from "./routes/auth";
@@ -16,7 +22,8 @@ import { bullBoardAdapter } from "./config/bull-board";
 import "./events/auth.events";
 import "./events/document.events";
 import "./events/admin.events";
-import './events/cache.events';
+import "./events/cache.events";
+import './events/security.events';
 import "./queues/document.worker";
 
 const app = express();
@@ -59,7 +66,7 @@ app.use(express.json());
 app.use(correlationId);
 app.use(logger);
 
-app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/auth", authLimiter, authRoutes);
 /*
  * Interactive API documentation.
  *
@@ -84,12 +91,12 @@ app.get("/health", (req: Request, res: Response) => {
   });
 });
 
-app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/users", apiLimiter, userRoutes);
 
-app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/admin", apiLimiter, adminRoutes);
 
-app.use("/api/v1/documents", documentRoutes);
-app.use("/api/v1/conversations", conversationRoutes);
+app.use("/api/v1/documents", uploadLimiter, documentRoutes);
+app.use("/api/v1/conversations", chatLimiter, conversationRoutes);
 
 // Mount the dashboard (protect with auth in production)
 app.use("/admin/queues", bullBoardAdapter.getRouter());

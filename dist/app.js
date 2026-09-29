@@ -10,6 +10,7 @@ const verifyWebhook_1 = require("./middleware/verifyWebhook");
 const correlationId_1 = __importDefault(require("./middleware/correlationId"));
 const logger_1 = __importDefault(require("./middleware/logger"));
 const errorHandler_1 = require("./middleware/errorHandler");
+const rateLimiter_1 = require("./middleware/rateLimiter");
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const admin_1 = __importDefault(require("./routes/admin"));
@@ -20,6 +21,7 @@ require("./events/auth.events");
 require("./events/document.events");
 require("./events/admin.events");
 require("./events/cache.events");
+require("./events/security.events");
 require("./queues/document.worker");
 const app = (0, express_1.default)();
 // Capture raw body for webhook routes BEFORE express.json()
@@ -48,7 +50,7 @@ else {
 app.use(express_1.default.json());
 app.use(correlationId_1.default);
 app.use(logger_1.default);
-app.use("/api/v1/auth", auth_1.default);
+app.use("/api/v1/auth", rateLimiter_1.authLimiter, auth_1.default);
 /*
  * Interactive API documentation.
  *
@@ -70,10 +72,10 @@ app.get("/health", (req, res) => {
         message: "API is healthy",
     });
 });
-app.use("/api/v1/users", user_routes_1.default);
-app.use("/api/v1/admin", admin_1.default);
-app.use("/api/v1/documents", document_routes_1.default);
-app.use("/api/v1/conversations", conversation_routes_1.default);
+app.use("/api/v1/users", rateLimiter_1.apiLimiter, user_routes_1.default);
+app.use("/api/v1/admin", rateLimiter_1.apiLimiter, admin_1.default);
+app.use("/api/v1/documents", rateLimiter_1.uploadLimiter, document_routes_1.default);
+app.use("/api/v1/conversations", rateLimiter_1.chatLimiter, conversation_routes_1.default);
 // Mount the dashboard (protect with auth in production)
 app.use("/admin/queues", bull_board_1.bullBoardAdapter.getRouter());
 // ============================================================
