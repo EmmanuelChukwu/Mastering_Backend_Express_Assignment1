@@ -1,0 +1,114 @@
+import { Worker, Job } from "bullmq";
+import { redisConnection } from "./connection";
+import { prisma } from "../lib/prisma";
+import { appEvents } from "../lib/events";
+import { deadLetterQueue } from "./dead-letter.queue";
+import { splitIntoChunks, estimateTokens } from "../lib/chunker";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+
+const worker = new Worker(
+  "document-processing",
+  async (job: Job) => {
+    const { documentId, userId } = job.data;
+    console.log(
+      `Processing document ${documentId} (attempt ${job.attemptsMade + 1})`,
+    );
+
+    // Step 1: Fetch the document metadata (filename) and mark processing
+    const doc = await prisma.document.findUniqueOrThrow({
+      where: { id: documentId },
+      select: { id: true, filename: true, userId: true },
+    });
+
+    // Mark as processing
+    await prisma.document.update({
+      where: { id: documentId },
+      data: { status: "processing" },
+    });
+
+    try {
+      await job.updateProgress(10);
+
+      // Step 2: Load file content from storage and split into chunks
+      const filePath = path.join(process.cwd(), "uploads", doc.filename);
+      const fileContent = await fs.readFile(filePath, "utf-8");
+      const chunks = splitIntoChunks(fileContent, 500);
+      await job.updateProgress(40);
+
+      // Step 3: Store chunks in the database
+      await prisma.$transaction(async (tx) => {
+        // Delete any existing chunks (in case of retry)
+        await tx.chunk.deleteMany({ where: { documentId } });
+
+        await tx.chunk.createMany({
+          data: chunks.map((text: string, index: number) => ({
+            documentId,
+            chunkIndex: index,
+            content: text,
+            tokenCount: estimateTokens(text),
+          })),
+        });
+
+        await tx.document.update({
+          where: { id: documentId },
+          data: { status: "ready", chunkCount: chunks.length },
+        });
+      });
+      await job.updateProgress(100);
+
+      // Emit event for audit/notification
+      appEvents.emit("doc:processed", {
+        documentId,
+        userId,
+        chunkCount: chunks.length,
+      });
+
+      return { success: true, chunks: chunks.length };
+    } catch (error) {
+      // Only mark as failed on the LAST attempt
+      if (job.attemptsMade >= (job.opts.attempts ?? 3) - 1) {
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: "failed",
+          },
+        });
+      }
+      throw error; // Re-throw so BullMQ retries
+    }
+  },
+  {
+    connection: redisConnection,
+    concurrency: 3,
+  },
+);
+
+// Event listeners for logging
+worker.on("completed", (job) => {
+  console.log(`Job ${job.id} completed: ${job.returnvalue?.chunks} chunks`);
+});
+
+worker.on("failed", async (job, error) => {
+  if (!job) return;
+
+  // Check if all attempts exhausted
+  if (job.attemptsMade >= (job.opts.attempts ?? 3)) {
+    console.error(`Job ${job.id} permanently failed. Moving to DLQ.`);
+
+    await deadLetterQueue.add("failed-document", {
+      originalJobId: job.id,
+      originalQueue: "document-processing",
+      data: job.data,
+      error: error.message,
+      failedAt: new Date().toISOString(),
+      attempts: job.attemptsMade,
+    });
+  }
+});
+
+worker.on("error", (error) => {
+  console.error("Worker error:", error);
+});
+
+export { worker };

@@ -11,9 +11,11 @@ import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import documentRoutes from "./routes/document.routes";
 import conversationRoutes from "./routes/conversation.routes";
+import { bullBoardAdapter } from './config/bull-board';
 import "./events/auth.events";
 import "./events/document.events";
 import "./events/admin.events";
+import './queues/document.worker';
 
 const app = express();
 
@@ -53,6 +55,10 @@ app.use("/api/v1/admin", adminRoutes);
 
 app.use("/api/v1/documents", documentRoutes);
 app.use("/api/v1/conversations", conversationRoutes);
+
+// Mount the dashboard (protect with auth in production)
+app.use('/admin/queues', bullBoardAdapter.getRouter());
+
 
 // ============================================================
 // 404 HANDLER

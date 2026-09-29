@@ -2,6 +2,7 @@ import { prisma } from "../lib/prisma";
 import { NotFoundError } from "../lib/errors";
 import { appEvents } from "../lib/events";
 import { DOC_EVENTS } from "../events/document.events";
+import { queueDocumentForProcessing } from "../queues/document.queue";
 
 /*
  * ============================================================
@@ -48,7 +49,7 @@ interface ListDocumentsOptions {
  */
 export async function listDocuments(
   userId: string,
-  options: ListDocumentsOptions
+  options: ListDocumentsOptions,
 ) {
   const {
     page,
@@ -163,10 +164,7 @@ export async function listDocuments(
  * A soft-deleted document behaves as though it doesn't exist
  * from the normal user's perspective.
  */
-export async function getDocument(
-  documentId: string,
-  userId: string
-) {
+export async function getDocument(documentId: string, userId: string) {
   const document = await prisma.document.findFirst({
     where: {
       id: documentId,
@@ -236,6 +234,9 @@ export async function createDocument(data: {
     },
   });
 
+  // Queue for background processing
+  const jobId = await queueDocumentForProcessing(document.id, data.userId);
+
   /*
    * The service doesn't directly write the audit log.
    *
@@ -270,10 +271,7 @@ export async function createDocument(data: {
  * - administrative investigation
  * - future restore functionality
  */
-export async function deleteDocument(
-  documentId: string,
-  userId: string
-) {
+export async function deleteDocument(documentId: string, userId: string) {
   /*
    * First retrieve the document.
    *

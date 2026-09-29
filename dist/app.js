@@ -14,9 +14,11 @@ const auth_1 = __importDefault(require("./routes/auth"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const document_routes_1 = __importDefault(require("./routes/document.routes"));
 const conversation_routes_1 = __importDefault(require("./routes/conversation.routes"));
+const bull_board_1 = require("./config/bull-board");
 require("./events/auth.events");
 require("./events/document.events");
 require("./events/admin.events");
+require("./queues/document.worker");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use(correlationId_1.default);
@@ -47,6 +49,8 @@ app.use("/api/v1/users", user_routes_1.default);
 app.use("/api/v1/admin", admin_1.default);
 app.use("/api/v1/documents", document_routes_1.default);
 app.use("/api/v1/conversations", conversation_routes_1.default);
+// Mount the dashboard (protect with auth in production)
+app.use('/admin/queues', bull_board_1.bullBoardAdapter.getRouter());
 // ============================================================
 // 404 HANDLER
 // ============================================================
