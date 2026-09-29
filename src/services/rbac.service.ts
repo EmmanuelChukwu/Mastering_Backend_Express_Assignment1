@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { cacheGet, cacheSet, cacheDel, CACHE_TTL } from '../lib/cache';
 
 /*
  * Get every permission belonging to a user.
@@ -31,18 +32,22 @@ import { prisma } from "../lib/prisma";
 export async function getUserPermissions(
   userId: string
 ): Promise<Set<string>> {
-  const userRoles = await prisma.userRole.findMany({
-    where: {
-      userId,
-    },
+  const cacheKey = `permissions:${userId}`;
 
+  // 1. Check cache
+  const cached = await cacheGet<string[]>(cacheKey);
+  if (cached) {
+    return new Set(cached);
+  }
+
+  // 2. Cache miss — load from database
+  const userRoles = await prisma.userRole.findMany({
+    where: { userId },
     include: {
       role: {
         include: {
           permissions: {
-            include: {
-              permission: true,
-            },
+            include: { permission: true },
           },
         },
       },
@@ -50,19 +55,14 @@ export async function getUserPermissions(
   });
 
   const permissions = new Set<string>();
-
-  /*
-   * A user can have multiple roles.
-   *
-   * We loop through every role and collect every permission.
-   *
-   * Set automatically prevents duplicates.
-   */
-  for (const userRole of userRoles) {
-    for (const rolePermission of userRole.role.permissions) {
-      permissions.add(rolePermission.permission.name);
+  for (const ur of userRoles) {
+    for (const rp of ur.role.permissions) {
+      permissions.add(rp.permission.name);
     }
   }
+
+  // 3. Store in cache
+  await cacheSet(cacheKey, [...permissions], CACHE_TTL.PERMISSIONS);
 
   return permissions;
 }

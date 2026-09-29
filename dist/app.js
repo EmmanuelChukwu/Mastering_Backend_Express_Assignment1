@@ -19,6 +19,7 @@ const bull_board_1 = require("./config/bull-board");
 require("./events/auth.events");
 require("./events/document.events");
 require("./events/admin.events");
+require("./events/cache.events");
 require("./queues/document.worker");
 const app = (0, express_1.default)();
 // Capture raw body for webhook routes BEFORE express.json()
