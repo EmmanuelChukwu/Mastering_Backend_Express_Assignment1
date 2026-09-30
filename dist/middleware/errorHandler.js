@@ -72,3 +72,18 @@ function errorHandler(err, _req, res, _next) {
         },
     });
 }
+// Scrub sensitive values from error details before responding
+function scrubSensitiveData(data) {
+    if (typeof data !== 'string')
+        return data;
+    const patterns = [
+        /Bearer [A-Za-z0-9\-._~+\/]+=*/g, // JWT tokens
+        /sk-[A-Za-z0-9]{20,}/g, // OpenAI keys
+        /password["']?\s*[:=]\s*["']?[^"'\s,}]+/gi, // password in any format
+    ];
+    let scrubbed = data;
+    for (const pattern of patterns) {
+        scrubbed = scrubbed.replace(pattern, '[REDACTED]');
+    }
+    return scrubbed;
+}
