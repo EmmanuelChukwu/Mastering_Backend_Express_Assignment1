@@ -1,13 +1,17 @@
-import { Router } from 'express';
-import { verifyWebhookSignature } from '../middleware/verifyWebhook';
-import { prisma } from '../lib/prisma';
-import { documentQueue } from '../queues/document.queue';
+import { Router } from "express";
+import { verifyWebhookSignature } from "../middleware/verifyWebhook";
+import { prisma } from "../lib/prisma";
+import { documentQueue } from "../queues/document.queue";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
 router.post(
-  '/example',
-  verifyWebhookSignature(process.env.EXAMPLE_WEBHOOK_SECRET!, 'X-Webhook-Signature'),
+  "/example",
+  verifyWebhookSignature(
+    process.env.EXAMPLE_WEBHOOK_SECRET!,
+    "X-Webhook-Signature",
+  ),
   async (req, res) => {
     // Body is still raw bytes here — parse it manually
     const event = JSON.parse((req as any).rawBody.toString());
@@ -28,7 +32,7 @@ router.post(
       update: {},
       create: {
         id: event.id,
-        provider: 'example',
+        provider: "example",
         eventType: event.type,
         payload: JSON.stringify(event),
       },
@@ -45,20 +49,20 @@ router.post(
         data: { processedAt: new Date() },
       });
     } catch (error) {
-      console.error(`Webhook ${event.id} processing failed:`, error);
+      logger.error(`Webhook processing failed`, { eventId: event.id, error });
       // Don't mark processedAt. The provider will retry.
     }
-  }
+  },
 );
 
 async function processWebhookEvent(event: any) {
   // Route to the right handler based on event type
   switch (event.type) {
-    case 'document.imported':
+    case "document.imported":
       // Queue document processing
       break;
     default:
-      console.log(`Unhandled webhook event type: ${event.type}`);
+      logger.info("unhandled_webhook_event", { eventType: event.type });
   }
 }
 

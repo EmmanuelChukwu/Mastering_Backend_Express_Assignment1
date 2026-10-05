@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const requestLogger_1 = require("./middleware/requestLogger");
 const helmet_1 = __importDefault(require("helmet"));
 const cors_1 = __importDefault(require("cors"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
@@ -11,7 +12,11 @@ const swagger_1 = require("./config/swagger");
 const verifyWebhook_1 = require("./middleware/verifyWebhook");
 const correlationId_1 = __importDefault(require("./middleware/correlationId"));
 const logger_1 = __importDefault(require("./middleware/logger"));
+const logger_2 = require("./lib/logger");
 const errorHandler_1 = require("./middleware/errorHandler");
+const metrics_1 = require("./lib/metrics");
+const metricsMiddleware_1 = require("./middleware/metricsMiddleware");
+const health_routes_1 = __importDefault(require("./routes/health.routes"));
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const sanitize_1 = require("./middleware/sanitize");
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
@@ -41,8 +46,7 @@ else {
     // Mount raw body parsing but skip verification when secret is not set
     // This keeps dev experience working while avoiding a runtime type error.
     // In production you should set WEBHOOK_SECRET and enable verification.
-    // eslint-disable-next-line no-console
-    console.warn("WEBHOOK_SECRET not set — webhooks mounted without signature verification");
+    logger_2.logger.warn("WEBHOOK_SECRET not set — webhooks mounted without signature verification");
     app.use("/webhooks", express_1.default.raw({
         type: "application/json",
         verify: (req, res, buf) => {
@@ -51,6 +55,7 @@ else {
     }));
 }
 app.use(express_1.default.json());
+app.use(requestLogger_1.requestLogger);
 app.use(sanitize_1.sanitizeInput);
 app.use((0, helmet_1.default)({
     contentSecurityPolicy: {
@@ -66,9 +71,8 @@ app.use((0, helmet_1.default)({
         },
     },
 }));
-const allowedOrigins = [
-    process.env.FRONTEND_URL || 'http://localhost:3001',
-];
+app.use(metricsMiddleware_1.metricsMiddleware);
+const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:3001"];
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, curl, server-to-server)
@@ -82,12 +86,13 @@ app.use((0, cors_1.default)({
         }
     },
     credentials: true, // Allow cookies/auth headers
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     maxAge: 86400, // Cache preflight requests for 24 hours
 }));
 app.use(correlationId_1.default);
 app.use(logger_1.default);
+app.use(health_routes_1.default);
 app.use("/api/v1/auth", rateLimiter_1.authLimiter, auth_1.default);
 /*
  * Interactive API documentation.
@@ -109,6 +114,10 @@ app.get("/health", (req, res) => {
         success: true,
         message: "API is healthy",
     });
+});
+app.get("/metrics", async (req, res) => {
+    res.set("Content-Type", metrics_1.metricsRegistry.contentType);
+    res.send(await metrics_1.metricsRegistry.metrics());
 });
 app.use("/api/v1/users", rateLimiter_1.apiLimiter, user_routes_1.default);
 app.use("/api/v1/admin", rateLimiter_1.apiLimiter, admin_1.default);

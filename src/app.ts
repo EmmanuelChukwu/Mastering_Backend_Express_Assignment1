@@ -1,20 +1,26 @@
 import express, { Request, Response } from "express";
-import helmet from 'helmet';
-import cors from 'cors';
+import { requestLogger } from "./middleware/requestLogger";
+import helmet from "helmet";
+import cors from "cors";
 
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
 import { verifyWebhookSignature } from "./middleware/verifyWebhook";
 import correlationId from "./middleware/correlationId";
-import logger from "./middleware/logger";
+import loggerMiddleware from "./middleware/logger";
+import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
+import { metricsRegistry } from "./lib/metrics";
+import { metricsMiddleware } from "./middleware/metricsMiddleware";
+import healthRoutes from "./routes/health.routes";
+
 import {
   authLimiter,
   apiLimiter,
   uploadLimiter,
   chatLimiter,
 } from "./middleware/rateLimiter";
-import { sanitizeInput } from './middleware/sanitize';
+import { sanitizeInput } from "./middleware/sanitize";
 
 import userRoutes from "./routes/user.routes";
 import authRoutes from "./routes/auth";
@@ -26,7 +32,7 @@ import "./events/auth.events";
 import "./events/document.events";
 import "./events/admin.events";
 import "./events/cache.events";
-import './events/security.events';
+import "./events/security.events";
 import "./queues/document.worker";
 
 const app = express();
@@ -49,8 +55,7 @@ if (secret) {
   // Mount raw body parsing but skip verification when secret is not set
   // This keeps dev experience working while avoiding a runtime type error.
   // In production you should set WEBHOOK_SECRET and enable verification.
-  // eslint-disable-next-line no-console
-  console.warn(
+  logger.warn(
     "WEBHOOK_SECRET not set — webhooks mounted without signature verification",
   );
   app.use(
@@ -65,47 +70,51 @@ if (secret) {
 }
 
 app.use(express.json());
+app.use(requestLogger);
 app.use(sanitizeInput);
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'none'"],
-      scriptSrc: ["'none'"],
-      styleSrc: ["'none'"],
-      imgSrc: ["'none'"],
-      connectSrc: ["'self'"],
-      // Allow Swagger UI if you serve it
-      // scriptSrc: ["'self'", "'unsafe-inline'"],
-      // styleSrc: ["'self'", "'unsafe-inline'"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        scriptSrc: ["'none'"],
+        styleSrc: ["'none'"],
+        imgSrc: ["'none'"],
+        connectSrc: ["'self'"],
+        // Allow Swagger UI if you serve it
+        // scriptSrc: ["'self'", "'unsafe-inline'"],
+        // styleSrc: ["'self'", "'unsafe-inline'"],
+      },
     },
-  },
-}));
+  }),
+);
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3001',
-];
+app.use(metricsMiddleware);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
+const allowedOrigins = [process.env.FRONTEND_URL || "http://localhost:3001"];
 
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
-  credentials: true,  // Allow cookies/auth headers
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400, // Cache preflight requests for 24 hours
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
 
-
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+    credentials: true, // Allow cookies/auth headers
+    methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400, // Cache preflight requests for 24 hours
+  }),
+);
 
 app.use(correlationId);
-app.use(logger);
+app.use(loggerMiddleware);
+app.use(healthRoutes);
 
 app.use("/api/v1/auth", authLimiter, authRoutes);
 /*
@@ -130,6 +139,11 @@ app.get("/health", (req: Request, res: Response) => {
     success: true,
     message: "API is healthy",
   });
+});
+
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", metricsRegistry.contentType);
+  res.send(await metricsRegistry.metrics());
 });
 
 app.use("/api/v1/users", apiLimiter, userRoutes);

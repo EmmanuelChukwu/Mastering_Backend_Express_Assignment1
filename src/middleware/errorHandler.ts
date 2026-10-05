@@ -1,11 +1,7 @@
-import {
-  Request,
-  Response,
-  NextFunction,
-} from "express";
+import { Request, Response, NextFunction } from "express";
 
 import { AppError } from "../lib/errors";
-
+import { logger } from "../lib/logger";
 
 // ============================================================
 // GLOBAL ERROR HANDLER
@@ -29,9 +25,8 @@ export function errorHandler(
   err: Error,
   _req: Request,
   res: Response,
-  _next: NextFunction
+  _next: NextFunction,
 ) {
-
   // ==========================================================
   // EXPECTED / OPERATIONAL ERROR
   // ==========================================================
@@ -46,10 +41,7 @@ export function errorHandler(
   // ==========================================================
 
   if (err instanceof AppError) {
-    console.warn(
-      `[${err.code}] ${err.message}`,
-      err.details ?? ""
-    );
+    logger.warn(`[${err.code}] ${err.message}`, { details: err.details ?? "" });
 
     return res.status(err.statusCode).json({
       success: false,
@@ -57,13 +49,10 @@ export function errorHandler(
         code: err.code,
         message: err.message,
 
-        ...(err.details !== undefined
-          ? { details: err.details }
-          : {}),
+        ...(err.details !== undefined ? { details: err.details } : {}),
       },
     });
   }
-
 
   // ==========================================================
   // UNEXPECTED PROGRAMMING ERROR
@@ -84,7 +73,7 @@ export function errorHandler(
   // Return a safe generic message to the client.
   // ==========================================================
 
-  console.error("Unhandled error:", err);
+  logger.error("Unhandled error", { error: err });
 
   return res.status(500).json({
     success: false,
@@ -97,17 +86,17 @@ export function errorHandler(
 
 // Scrub sensitive values from error details before responding
 function scrubSensitiveData(data: any): any {
-  if (typeof data !== 'string') return data;
+  if (typeof data !== "string") return data;
 
   const patterns = [
-    /Bearer [A-Za-z0-9\-._~+\/]+=*/g,  // JWT tokens
-    /sk-[A-Za-z0-9]{20,}/g,              // OpenAI keys
+    /Bearer [A-Za-z0-9\-._~+\/]+=*/g, // JWT tokens
+    /sk-[A-Za-z0-9]{20,}/g, // OpenAI keys
     /password["']?\s*[:=]\s*["']?[^"'\s,}]+/gi, // password in any format
   ];
 
   let scrubbed = data;
   for (const pattern of patterns) {
-    scrubbed = scrubbed.replace(pattern, '[REDACTED]');
+    scrubbed = scrubbed.replace(pattern, "[REDACTED]");
   }
   return scrubbed;
 }

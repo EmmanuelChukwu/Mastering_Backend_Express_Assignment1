@@ -1,12 +1,12 @@
-import { Queue } from 'bullmq';
-import { redisConnection } from './connection';
+import { Queue } from "bullmq";
+import { redisConnection } from "./connection";
 
-export const documentQueue = new Queue('document-processing', {
+export const documentQueue = new Queue("document-processing", {
   connection: redisConnection,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
-      type: 'exponential',
+      type: "exponential",
       delay: 2000,
     },
     removeOnComplete: { count: 200 }, // set to large number to remove all completed
@@ -16,11 +16,14 @@ export const documentQueue = new Queue('document-processing', {
 
 export async function queueDocumentForProcessing(
   documentId: string,
-  userId: string
+  userId: string,
+  correlationId?: string,
 ) {
-  const job = await documentQueue.add(
-    'process-document',
-    { documentId, userId, queuedAt: Date.now() },
-  );
+  const job = await documentQueue.add("process-document", {
+    documentId,
+    userId,
+    queuedAt: Date.now(),
+    correlationId,
+  });
   return job.id;
 }

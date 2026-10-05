@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.errorHandler = errorHandler;
 const errors_1 = require("../lib/errors");
+const logger_1 = require("../lib/logger");
 // ============================================================
 // GLOBAL ERROR HANDLER
 // ============================================================
@@ -33,15 +34,13 @@ function errorHandler(err, _req, res, _next) {
     // We can safely send the appropriate message/status.
     // ==========================================================
     if (err instanceof errors_1.AppError) {
-        console.warn(`[${err.code}] ${err.message}`, err.details ?? "");
+        logger_1.logger.warn(`[${err.code}] ${err.message}`, { details: err.details ?? "" });
         return res.status(err.statusCode).json({
             success: false,
             error: {
                 code: err.code,
                 message: err.message,
-                ...(err.details !== undefined
-                    ? { details: err.details }
-                    : {}),
+                ...(err.details !== undefined ? { details: err.details } : {}),
             },
         });
     }
@@ -63,7 +62,7 @@ function errorHandler(err, _req, res, _next) {
     // Log the actual error server-side.
     // Return a safe generic message to the client.
     // ==========================================================
-    console.error("Unhandled error:", err);
+    logger_1.logger.error("Unhandled error", { error: err });
     return res.status(500).json({
         success: false,
         error: {
@@ -74,7 +73,7 @@ function errorHandler(err, _req, res, _next) {
 }
 // Scrub sensitive values from error details before responding
 function scrubSensitiveData(data) {
-    if (typeof data !== 'string')
+    if (typeof data !== "string")
         return data;
     const patterns = [
         /Bearer [A-Za-z0-9\-._~+\/]+=*/g, // JWT tokens
@@ -83,7 +82,7 @@ function scrubSensitiveData(data) {
     ];
     let scrubbed = data;
     for (const pattern of patterns) {
-        scrubbed = scrubbed.replace(pattern, '[REDACTED]');
+        scrubbed = scrubbed.replace(pattern, "[REDACTED]");
     }
     return scrubbed;
 }

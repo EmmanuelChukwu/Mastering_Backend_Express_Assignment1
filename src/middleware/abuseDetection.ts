@@ -1,8 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
-import { cacheRedis } from '../lib/cache';
+import { Request, Response, NextFunction } from "express";
+import { cacheRedis } from "../lib/cache";
+import { logger } from "../lib/logger";
 
 export async function trackSuspiciousActivity(
-  req: Request, res: Response, next: NextFunction
+  req: Request,
+  res: Response,
+  next: NextFunction,
 ) {
   const userId = (req as any).user?.id;
   if (!userId) return next();
@@ -14,13 +17,11 @@ export async function trackSuspiciousActivity(
 
     if (docId) {
       await cacheRedis.sadd(key, docId);
-      await cacheRedis.expire(key, 300);  // 5 minute window
+      await cacheRedis.expire(key, 300); // 5 minute window
 
       const uniqueDocs = await cacheRedis.scard(key);
       if (uniqueDocs > 50) {
-        console.warn(
-          `Suspicious: user ${userId} accessed ${uniqueDocs} unique documents in 5 min`
-        );
+        logger.warn("suspicious_activity_detected", { userId, uniqueDocs });
         // In production: emit event, alert admin, temporarily throttle
       }
     }

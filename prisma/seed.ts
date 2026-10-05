@@ -105,14 +105,13 @@ async function seedRBAC() {
   const permissions: Record<string, any> = {};
 
   for (const permission of permissionDefs) {
-    permissions[permission.name] =
-      await prisma.permission.upsert({
-        where: {
-          name: permission.name,
-        },
-        update: {},
-        create: permission,
-      });
+    permissions[permission.name] = await prisma.permission.upsert({
+      where: {
+        name: permission.name,
+      },
+      update: {},
+      create: permission,
+    });
   }
 
   // ============================================================
@@ -148,10 +147,7 @@ async function seedRBAC() {
       name: "viewer",
       description: "Read-only access",
 
-      permissions: [
-        "documents:read",
-        "conversations:read",
-      ],
+      permissions: ["documents:read", "conversations:read"],
     },
   ];
 

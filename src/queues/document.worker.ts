@@ -6,14 +6,22 @@ import { deadLetterQueue } from "./dead-letter.queue";
 import { splitIntoChunks, estimateTokens } from "../lib/chunker";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { logger } from "../lib/logger";
 
 const worker = new Worker(
   "document-processing",
   async (job: Job) => {
-    const { documentId, userId } = job.data;
-    console.log(
-      `Processing document ${documentId} (attempt ${job.attemptsMade + 1})`,
-    );
+    const { documentId, userId, correlationId } = job.data as {
+      documentId: string;
+      userId: string;
+      correlationId?: string;
+    };
+
+    logger.info("job_started", {
+      correlationId,
+      documentId,
+      attempt: job.attemptsMade + 1,
+    });
 
     // Step 1: Fetch the document metadata (filename) and mark processing
     const doc = await prisma.document.findUniqueOrThrow({
@@ -86,7 +94,10 @@ const worker = new Worker(
 
 // Event listeners for logging
 worker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed: ${job.returnvalue?.chunks} chunks`);
+  logger.info("job_completed", {
+    jobId: job.id,
+    chunks: job.returnvalue?.chunks,
+  });
 });
 
 worker.on("failed", async (job, error) => {
@@ -94,13 +105,16 @@ worker.on("failed", async (job, error) => {
 
   // Check if all attempts exhausted
   if (job.attemptsMade >= (job.opts.attempts ?? 3)) {
-    console.error(`Job ${job.id} permanently failed. Moving to DLQ.`);
+    logger.error("Job permanently failed - moving to DLQ", {
+      jobId: job.id,
+      error: error?.message,
+    });
 
     await deadLetterQueue.add("failed-document", {
       originalJobId: job.id,
       originalQueue: "document-processing",
       data: job.data,
-      error: error.message,
+      error: error?.message,
       failedAt: new Date().toISOString(),
       attempts: job.attemptsMade,
     });
@@ -108,7 +122,7 @@ worker.on("failed", async (job, error) => {
 });
 
 worker.on("error", (error) => {
-  console.error("Worker error:", error);
+  logger.error("Worker error", { error });
 });
 
 export { worker };

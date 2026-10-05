@@ -211,6 +211,7 @@ export async function createDocument(data: {
   filename: string;
   description?: string;
   fileSizeBytes?: number;
+  correlationId?: string;
 }) {
   const document = await prisma.document.create({
     data: {
@@ -235,7 +236,11 @@ export async function createDocument(data: {
   });
 
   // Queue for background processing
-  const jobId = await queueDocumentForProcessing(document.id, data.userId);
+  const jobId = await queueDocumentForProcessing(
+    document.id,
+    data.userId,
+    data.correlationId,
+  );
 
   /*
    * The service doesn't directly write the audit log.
@@ -250,6 +255,7 @@ export async function createDocument(data: {
     documentId: document.id,
     title: document.title,
     fileSizeBytes: document.fileSizeBytes,
+    correlationId: data.correlationId,
   });
 
   return document;

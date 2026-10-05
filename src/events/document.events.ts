@@ -1,5 +1,6 @@
 import { appEvents } from "../lib/events";
 import { prisma } from "../lib/prisma";
+import { logger } from "../lib/logger";
 
 /*
  * ============================================================
@@ -53,6 +54,10 @@ appEvents.on(DOC_EVENTS.CREATED, async (data) => {
         },
       },
     });
+    logger.info("doc_created_logged", {
+      correlationId: data.correlationId ?? null,
+      documentId: data.documentId,
+    });
   } catch (error) {
     /*
      * Audit logging should not crash the original request.
@@ -61,10 +66,7 @@ appEvents.on(DOC_EVENTS.CREATED, async (data) => {
      * We simply record that the secondary logging operation
      * failed so it can be investigated.
      */
-    console.error(
-      "Failed to log document creation:",
-      error
-    );
+    logger.error("Failed to log document creation", { error });
   }
 });
 
@@ -89,10 +91,11 @@ appEvents.on(DOC_EVENTS.DELETED, async (data) => {
         },
       },
     });
+    logger.info("doc_deleted_logged", {
+      correlationId: data.correlationId ?? null,
+      documentId: data.documentId,
+    });
   } catch (error) {
-    console.error(
-      "Failed to log document deletion:",
-      error
-    );
+    logger.error("Failed to log document deletion", { error });
   }
 });

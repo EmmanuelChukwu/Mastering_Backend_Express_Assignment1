@@ -34,10 +34,7 @@ function getUserId(req: AuthenticatedRequest): string {
  * GET /documents
  * ============================================================
  */
-export async function getDocuments(
-  req: AuthenticatedRequest,
-  res: Response
-) {
+export async function getDocuments(req: AuthenticatedRequest, res: Response) {
   const userId = getUserId(req);
 
   const result = await listDocuments(
@@ -49,7 +46,7 @@ export async function getDocuments(
       search?: string;
       sortBy?: "createdAt" | "title" | "chunkCount";
       sortOrder?: "asc" | "desc";
-    }
+    },
   );
 
   res.status(200).json({
@@ -65,14 +62,11 @@ export async function getDocuments(
  */
 export async function getDocumentById(
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) {
   const userId = getUserId(req);
 
-  const document = await getDocument(
-    req.params.id,
-    userId
-  );
+  const document = await getDocument(req.params.id, userId);
 
   res.status(200).json({
     success: true,
@@ -87,7 +81,7 @@ export async function getDocumentById(
  */
 export async function createDocumentController(
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) {
   const userId = getUserId(req);
 
@@ -97,6 +91,7 @@ export async function createDocumentController(
     filename: req.body.filename,
     description: req.body.description,
     fileSizeBytes: req.body.fileSizeBytes,
+    correlationId: (req as any).correlationId,
   });
 
   res.status(201).json({
@@ -112,14 +107,11 @@ export async function createDocumentController(
  */
 export async function deleteDocumentController(
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) {
   const userId = getUserId(req);
 
-  const document = await deleteDocument(
-    req.params.id,
-    userId
-  );
+  const document = await deleteDocument(req.params.id, userId);
 
   res.status(200).json({
     success: true,

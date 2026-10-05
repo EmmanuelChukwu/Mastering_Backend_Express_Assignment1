@@ -1,4 +1,5 @@
 import { appEvents } from "../lib/events";
+import { logger } from "../lib/logger";
 
 /*
  * Keep all authentication event names in one place.
@@ -34,9 +35,7 @@ export const AUTH_EVENTS = {
  */
 appEvents.on(AUTH_EVENTS.USER_REGISTERED, async (user) => {
   try {
-    console.log(
-      `[AUTH EVENT] User registered: ${user.email} (${user.id})`
-    );
+    logger.info("auth.user_registered", { email: user.email, userId: user.id });
 
     /*
      * Future side effects could live here:
@@ -52,7 +51,7 @@ appEvents.on(AUTH_EVENTS.USER_REGISTERED, async (user) => {
      * A side effect failing should NOT cause registration itself
      * to fail.
      */
-    console.error("Failed to process USER_REGISTERED event:", error);
+    logger.error("Failed to process USER_REGISTERED event", { error });
   }
 });
 
@@ -64,13 +63,12 @@ appEvents.on(AUTH_EVENTS.USER_REGISTERED, async (user) => {
  */
 appEvents.on(AUTH_EVENTS.USER_LOGGED_IN, async (data) => {
   try {
-    console.log(
-      `[AUTH EVENT] User logged in: ${data.userId} | Device: ${
-        data.deviceInfo ?? "unknown"
-      }`
-    );
+    logger.info("auth.user_logged_in", {
+      userId: data.userId,
+      deviceInfo: data.deviceInfo ?? "unknown",
+    });
   } catch (error) {
-    console.error("Failed to process USER_LOGGED_IN event:", error);
+    logger.error("Failed to process USER_LOGGED_IN event", { error });
   }
 });
 
@@ -83,13 +81,12 @@ appEvents.on(AUTH_EVENTS.USER_LOGGED_IN, async (data) => {
  */
 appEvents.on(AUTH_EVENTS.LOGIN_FAILED, async (data) => {
   try {
-    console.warn(
-      `[AUTH EVENT] Failed login attempt for ${data.email} | Device: ${
-        data.deviceInfo ?? "unknown"
-      }`
-    );
+    logger.warn("auth.login_failed", {
+      email: data.email,
+      deviceInfo: data.deviceInfo ?? "unknown",
+    });
   } catch (error) {
-    console.error("Failed to process LOGIN_FAILED event:", error);
+    logger.error("Failed to process LOGIN_FAILED event", { error });
   }
 });
 
@@ -102,11 +99,9 @@ appEvents.on(AUTH_EVENTS.LOGIN_FAILED, async (data) => {
  */
 appEvents.on(AUTH_EVENTS.TOKEN_REFRESHED, async (data) => {
   try {
-    console.log(
-      `[AUTH EVENT] Token refreshed for user: ${data.userId}`
-    );
+    logger.info("auth.token_refreshed", { userId: data.userId });
   } catch (error) {
-    console.error("Failed to process TOKEN_REFRESHED event:", error);
+    logger.error("Failed to process TOKEN_REFRESHED event", { error });
   }
 });
 
@@ -115,10 +110,8 @@ appEvents.on(AUTH_EVENTS.TOKEN_REFRESHED, async (data) => {
  */
 appEvents.on(AUTH_EVENTS.USER_LOGGED_OUT, async (data) => {
   try {
-    console.log(
-      `[AUTH EVENT] User logged out: ${data.userId}`
-    );
+    logger.info("auth.user_logged_out", { userId: data.userId });
   } catch (error) {
-    console.error("Failed to process USER_LOGGED_OUT event:", error);
+    logger.error("Failed to process USER_LOGGED_OUT event", { error });
   }
 });

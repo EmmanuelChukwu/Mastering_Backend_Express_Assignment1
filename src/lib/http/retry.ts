@@ -1,4 +1,5 @@
-import { AxiosError } from 'axios';
+import { AxiosError } from "axios";
+import { logger } from "../logger";
 
 function isRetryable(error: AxiosError): boolean {
   // No response = network error or timeout. Retry.
@@ -9,14 +10,13 @@ function isRetryable(error: AxiosError): boolean {
 }
 
 function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function withRetry<T>(
   operation: () => Promise<T>,
-  options: { maxAttempts?: number; baseDelayMs?: number } = {}
+  options: { maxAttempts?: number; baseDelayMs?: number } = {},
 ): Promise<T> {
-
   const { maxAttempts = 3, baseDelayMs = 1000 } = options;
 
   let lastError: any;
@@ -36,15 +36,16 @@ export async function withRetry<T>(
       }
 
       // Honor Retry-After header if present
-      const retryAfter = error.response?.headers['retry-after'];
+      const retryAfter = error.response?.headers["retry-after"];
       const delayMs = retryAfter
         ? parseInt(retryAfter) * 1000
         : baseDelayMs * Math.pow(2, attempt - 1);
 
-      console.warn(
-        `Attempt ${attempt} failed, retrying in ${delayMs}ms:`,
-        error.message
-      );
+      logger.warn(`Attempt ${attempt} failed, retrying`, {
+        attempt,
+        delayMs,
+        message: error.message,
+      });
       await delay(delayMs);
     }
   }
