@@ -196,7 +196,7 @@ exports.DocumentScalarFieldEnum = {
 exports.ChunkScalarFieldEnum = {
     id: 'id',
     documentId: 'documentId',
-    chunkIndex: 'chunkIndex',
+    index: 'index',
     content: 'content',
     tokenCount: 'tokenCount',
     createdAt: 'createdAt'

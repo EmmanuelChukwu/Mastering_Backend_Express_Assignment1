@@ -181,7 +181,7 @@ export async function getDocument(documentId: string, userId: string) {
        */
       chunks: {
         orderBy: {
-          chunkIndex: "asc",
+          index: "asc",
         },
       },
     },

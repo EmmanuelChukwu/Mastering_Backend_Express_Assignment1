@@ -52,7 +52,7 @@ const worker = new Worker(
         await tx.chunk.createMany({
           data: chunks.map((text: string, index: number) => ({
             documentId,
-            chunkIndex: index,
+            index,
             content: text,
             tokenCount: estimateTokens(text),
           })),

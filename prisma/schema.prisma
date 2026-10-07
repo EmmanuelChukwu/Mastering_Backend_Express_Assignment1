@@ -7,6 +7,7 @@ datasource db {
   provider = "postgresql"
 }
 
+
 model User {
   id           String    @id @default(cuid())
   name         String
@@ -184,22 +185,17 @@ model Chunk {
   documentId String
 
   // Position of this chunk within the document.
-  chunkIndex Int
+  ChunkIndex Int
+  content    String
+  tokenCount Int
+  // Vector embedding — 1536 dimensions for text-embedding-3-small
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime @default(now())
 
-  // The actual extracted text.
-  content String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
-  // Useful later for RAG/vector search.
-  //
-  // We aren't storing an embedding here yet because
-  // the vector-database portion comes later.
-  tokenCount Int?
 
-  createdAt DateTime @default(now())
-
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@unique([documentId, chunkIndex])
+  @@unique([documentId, ChunkIndex])
   @@index([documentId])
 }
 
