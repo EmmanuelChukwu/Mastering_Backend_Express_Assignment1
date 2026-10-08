@@ -30,6 +30,7 @@ require("./events/document.events");
 require("./events/admin.events");
 require("./events/cache.events");
 require("./events/security.events");
+require("./events/ingestion.events");
 require("./queues/document.worker");
 const app = (0, express_1.default)();
 // Capture raw body for webhook routes BEFORE express.json()

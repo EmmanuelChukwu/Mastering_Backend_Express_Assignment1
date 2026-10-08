@@ -33,6 +33,7 @@ import "./events/document.events";
 import "./events/admin.events";
 import "./events/cache.events";
 import "./events/security.events";
+import "./events/ingestion.events";
 import "./queues/document.worker";
 
 const app = express();
@@ -43,7 +44,7 @@ const secret = process.env.WEBHOOK_SECRET;
 if (secret) {
   app.use(
     "/webhooks",
-    verifyWebhookSignature(secret, "x-signature"),
+    verifyWebhookSignature(secret as string, "x-signature"),
     express.raw({
       type: "application/json",
       verify: (req: any, res, buf) => {
