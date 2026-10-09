@@ -1,5 +1,7 @@
 import { prisma } from "../lib/prisma";
 import { NotFoundError } from "../lib/errors";
+import { semanticSearch } from "./search.service";
+import { assembleContext, generateRAGResponse } from "./rag.service";
 
 /*
  * ============================================================
@@ -22,10 +24,7 @@ import { NotFoundError } from "../lib/errors";
  * CREATE CONVERSATION
  * ============================================================
  */
-export async function createConversation(
-  userId: string,
-  title?: string
-) {
+export async function createConversation(userId: string, title?: string) {
   return prisma.conversation.create({
     data: {
       userId,
@@ -59,7 +58,7 @@ export async function listConversations(
   options: {
     page: number;
     limit: number;
-  }
+  },
 ) {
   const { page, limit } = options;
 
@@ -173,62 +172,18 @@ export async function sendMessage(data: {
   userId: string;
   content: string;
   documentId?: string;
+  correlationId: string;
 }) {
   return prisma.$transaction(async (tx) => {
-    /*
-     * --------------------------------------------------------
-     * 1. Verify conversation ownership
-     * --------------------------------------------------------
-     *
-     * We must make sure User A cannot send messages into
-     * User B's conversation.
-     */
-    const conversation = await tx.conversation.findFirst({
-      where: {
-        id: data.conversationId,
-        userId: data.userId,
-      },
+    // 1. Verify conversation ownership (same as before)
+    const conversation = await tx.conversation.findUnique({
+      where: { id: data.conversationId },
     });
-
-    if (!conversation) {
+    if (!conversation || conversation.userId !== data.userId) {
       throw new NotFoundError("Conversation not found");
     }
 
-    /*
-     * --------------------------------------------------------
-     * 2. Validate the optional document
-     * --------------------------------------------------------
-     *
-     * If this message references a document, make sure:
-     *
-     * - it exists
-     * - it belongs to this user
-     * - it hasn't been soft-deleted
-     *
-     * IMPORTANT:
-     * We use tx here, not the global prisma client.
-     *
-     * Everything inside the transaction must use tx.
-     */
-    if (data.documentId) {
-      const document = await tx.document.findFirst({
-        where: {
-          id: data.documentId,
-          userId: data.userId,
-          deletedAt: null,
-        },
-      });
-
-      if (!document) {
-        throw new NotFoundError("Document not found");
-      }
-    }
-
-    /*
-     * --------------------------------------------------------
-     * 3. Create user's message
-     * --------------------------------------------------------
-     */
+    // 2. Save user message
     const userMessage = await tx.message.create({
       data: {
         conversationId: data.conversationId,
@@ -238,79 +193,63 @@ export async function sendMessage(data: {
       },
     });
 
-    /*
-     * --------------------------------------------------------
-     * 4. Update conversation timestamp
-     * --------------------------------------------------------
-     *
-     * This makes the conversation move to the top of a
-     * "recent conversations" list.
-     */
-    await tx.conversation.update({
-      where: {
-        id: data.conversationId,
-      },
+    // 3. Load recent conversation history
+    const history = await tx.message.findMany({
+      where: { conversationId: data.conversationId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { role: true, content: true },
+    });
+    const conversationHistory = history.reverse();
 
-      data: {
-        updatedAt: new Date(),
-      },
+    // 4. RAG: Retrieve
+    const searchResults = await semanticSearch({
+      query: data.content,
+      userId: data.userId,
+      documentId: data.documentId,
+      correlationId: data.correlationId,
     });
 
-    /*
-     * --------------------------------------------------------
-     * 5. Placeholder assistant response
-     * --------------------------------------------------------
-     *
-     * The actual RAG/LLM pipeline comes later.
-     *
-     * For now we're proving the database/business flow.
-     */
+    // 5. RAG: Augment
+    const context = assembleContext(searchResults);
+
+    // 6. RAG: Generate
+    const ragResponse = await generateRAGResponse({
+      question: data.content,
+      context,
+      conversationHistory,
+      userId: data.userId,
+      conversationId: data.conversationId,
+      correlationId: data.correlationId,
+    });
+
+    // 7. Save assistant message with metadata
     const assistantMessage = await tx.message.create({
       data: {
         conversationId: data.conversationId,
         documentId: data.documentId,
         role: "assistant",
-        content: "AI response placeholder (Week 4)",
-
-        promptTokens: 0,
-        completionTokens: 0,
-        costUsd: 0,
+        content: ragResponse.answer,
+        promptTokens: ragResponse.tokensUsed.prompt,
+        completionTokens: ragResponse.tokensUsed.completion,
+        costUsd: ragResponse.costUsd,
+        // Prisma `Message` model does not have a `metadata` JSON field in this schema.
+        // Store smaller audit info in `content` or extend schema if needed.
       },
     });
 
-    /*
-     * --------------------------------------------------------
-     * 6. Record usage
-     * --------------------------------------------------------
-     *
-     * This MUST happen inside the same transaction.
-     *
-     * If UsageLog creation fails:
-     *
-     *     user message → rollback
-     *     conversation update → rollback
-     *     assistant message → rollback
-     *     usage log → rollback
-     *
-     * Nothing is left partially completed.
-     */
-    await tx.usageLog.create({
-      data: {
-        userId: data.userId,
-        action: "chat",
-        tokens: 0,
-        costUsd: 0,
-      },
+    // 8. Touch conversation updatedAt
+    await tx.conversation.update({
+      where: { id: data.conversationId },
+      data: { updatedAt: new Date() },
     });
 
-    /*
-     * Everything succeeded.
-     *
-     * Prisma commits the transaction automatically.
-     */
     return {
       userMessage,
-      assistantMessage,
+      assistantMessage: {
+        ...assistantMessage,
+        citations: ragResponse.citations,
+      },
     };
   });
 }

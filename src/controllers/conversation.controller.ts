@@ -29,14 +29,11 @@ function getUserId(req: AuthenticatedRequest): string {
  */
 export async function createConversationController(
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) {
   const userId = getUserId(req);
 
-  const conversation = await createConversation(
-    userId,
-    req.body.title
-  );
+  const conversation = await createConversation(userId, req.body.title);
 
   res.status(201).json({
     success: true,
@@ -51,7 +48,7 @@ export async function createConversationController(
  */
 export async function getConversations(
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) {
   const userId = getUserId(req);
 
@@ -60,7 +57,7 @@ export async function getConversations(
     req.query as unknown as {
       page: number;
       limit: number;
-    }
+    },
   );
 
   res.status(200).json({
@@ -74,10 +71,7 @@ export async function getConversations(
  * POST /conversations/:id/messages
  * ============================================================
  */
-export async function createMessage(
-  req: AuthenticatedRequest,
-  res: Response
-) {
+export async function createMessage(req: AuthenticatedRequest, res: Response) {
   const userId = getUserId(req);
 
   const result = await sendMessage({
@@ -85,6 +79,7 @@ export async function createMessage(
     userId,
     content: req.body.content,
     documentId: req.body.documentId,
+    correlationId: (req as any).correlationId || "",
   });
 
   res.status(201).json({

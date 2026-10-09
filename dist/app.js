@@ -16,7 +16,7 @@ const logger_2 = require("./lib/logger");
 const errorHandler_1 = require("./middleware/errorHandler");
 const metrics_1 = require("./lib/metrics");
 const metricsMiddleware_1 = require("./middleware/metricsMiddleware");
-const health_routes_1 = __importDefault(require("./routes/health.routes"));
+const health_1 = __importDefault(require("./routes/health"));
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const sanitize_1 = require("./middleware/sanitize");
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
@@ -93,7 +93,7 @@ app.use((0, cors_1.default)({
 }));
 app.use(correlationId_1.default);
 app.use(logger_1.default);
-app.use(health_routes_1.default);
+app.use(health_1.default);
 app.use("/api/v1/auth", rateLimiter_1.authLimiter, auth_1.default);
 /*
  * Interactive API documentation.

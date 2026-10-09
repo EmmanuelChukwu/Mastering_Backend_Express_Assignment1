@@ -12,7 +12,7 @@ import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { metricsRegistry } from "./lib/metrics";
 import { metricsMiddleware } from "./middleware/metricsMiddleware";
-import healthRoutes from "./routes/health.routes";
+import healthRoutes from "./routes/health";
 
 import {
   authLimiter,
